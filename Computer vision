@@ -1,0 +1,90 @@
+from picamera.array import PiRGBArray
+from picamera import PiCamera
+import time
+import cv2
+import numpy as np
+
+def getloc(markercorner, image):
+    center = (0,0)
+    numloc = 0
+    framecenter = (640/2, 480/2)
+    for marker in markercorner:
+        for corner in marker:
+            cv2.line(image, (corner[0][0], corner[0][1]), (corner[1][0], corner[1][1]), (0,0,255), thickness=1)
+            cv2.line(image, (corner[1][0], corner[1][1]), (corner[2][0], corner[2][1]), (0,0,255), thickness=1)
+            cv2.line(image, (corner[2][0], corner[2][1]), (corner[3][0], corner[3][1]), (0,0,255), thickness=1)
+            cv2.line(image, (corner[3][0], corner[3][1]), (corner[0][0], corner[0][1]), (0,0,255), thickness=1)
+            center = (((corner[0][0] + corner[1][0] + corner[2][0] + corner[3][0])/4), ((corner[0][1] + corner[1][1] + corner[2][1] + corner[3][1])/4))
+    if center[0] <  framecenter[0] and center[1] < framecenter[1]:
+        numloc = 1
+    if center[0] >  framecenter[0] and center[1] < framecenter[1]:
+        numloc = 2
+    if center[0] >  framecenter[0] and center[1] > framecenter[1]:
+        numloc = 3
+    if center[0] <  framecenter[0] and center[1] > framecenter[1]:
+        numloc = 4
+    return(numloc)
+       
+def getvideo():
+# initialize the camera and grab a reference to the raw camera capture
+    camera = PiCamera()
+    camera.resolution = (640, 480)
+    camera.framerate = 32
+    rawCapture = PiRGBArray(camera, size=(640, 480))
+
+# allow the camera to warmup
+    time.sleep(0.1)
+
+# capture frames from the camera
+    for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+        image = frame.array
+        markercorner = exercise5(image)
+        if markercorner:
+            numloc = getloc(markercorner, image)            
+    # show the frame
+        cv2.imshow("Frame", image)
+        key = cv2.waitKey(1) & 0xFF
+
+    # clear the stream in preparation for the next frame
+        rawCapture.truncate(0)
+
+    # if the `q` key was pressed, break from the loop
+        if key == ord("q"):
+            break
+
+def convertgray(image):
+ # Coverts image into gray image
+    grayimg = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY )
+# cv2.imshow("Gray image", grayimg)
+# cv2.imwrite("grayimg.jpg", grayimg)
+    cv2.waitKey(1)
+# cv2.destroyAllWindows()
+ # Used by other fuctions so image needs to be returned
+    return(grayimg)
+
+def exercise5(image):
+ #Checks image for aruco markers and prints value or np marker found
+    dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
+
+ # Makes image gray
+    image = convertgray(image)
+ # Initialize the detector parameters using default values
+    parameters = cv2.aruco.DetectorParameters_create()
+ # Detect the markers in the image
+    markerCorners, markerIds, rejectedCandidates = cv2.aruco.detectMarkers(image, dictionary, parameters=parameters)
+    #if markerIds is None:
+        #print("No Markers Found")
+    #else:
+        #print("Found marker(s): ", markerIds)
+ # Returns corner values to be used by other functions
+    return(markerCorners)
+
+
+def main():
+    #input("Do you want to calibrate the camera? y or n: ", calib)
+    #if calib == "y":
+    #    calibration()
+    getvideo()
+    
+if __name__ == "__main__":
+    main()
